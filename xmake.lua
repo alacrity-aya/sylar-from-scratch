@@ -7,8 +7,8 @@ target("sylar-log")
 
 target("log_test")
     set_kind("binary")
-    add_files("./test/log_test.cc")
-    add_deps("sylar-log")
+    add_files("./test/log_test.cc","./sylar/log.cc")
+    -- add_deps("sylar-log")
     add_includedirs("./")
 
 --

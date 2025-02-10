@@ -32,7 +32,7 @@ public:
 class LogEvent {
 public:
     using ptr = std::shared_ptr<LogEvent>;
-    LogEvent();
+    LogEvent(const char* file, int32_t line, uint32_t elapse, uint32_t thread_id, uint32_t fiber_id, uint64_t time);
     /**
      * @brief 返回文件名
      */
@@ -63,16 +63,18 @@ public:
      */
     [[nodiscard]] uint64_t get_time() const { return _time; }
 
-    [[nodiscard]] std::string get_content() const { return _content; }
+    [[nodiscard]] std::string get_content() const { return _ss.str(); }
+
+    std::stringstream& get_ss() { return _ss; }
 
 private:
     const char* _file = nullptr; // file name
     int32_t _line = 0; // the number of line
     uint32_t _thread_id = 0; // thread id
     uint32_t _fiber_id = 0; // fiber id
-    int64_t _time = 0; // time stamp
+    uint64_t _time = 0; // time stamp
     uint32_t _elapse = 0; // millseconds since the program started
-    std::string _content;
+    std::stringstream _ss;
 };
 
 class LogFormatter {
@@ -108,7 +110,7 @@ public:
     [[nodiscard]] LogFormatter::ptr get_fotmatter() const { return _formatter; }
 
 protected:
-    LogLevel::Level _level;
+    LogLevel::Level _level { LogLevel::DEBUG };
     LogFormatter::ptr _formatter;
 };
 

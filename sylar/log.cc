@@ -3,6 +3,8 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -68,7 +70,8 @@ void Logger::del_appender(LogAppender::ptr appender)
 
 Logger::Logger(std::string name)
     : _name { std::move(name) }
-    , _formatter { std::make_shared<LogFormatter>("%d  [%p] %f %l %m %n") }
+    , _formatter { std::make_shared<LogFormatter>("%f %l %r %t") }
+    , _level { LogLevel::DEBUG }
 
 {
 }
@@ -100,6 +103,16 @@ bool FileLogAppender::reopen()
 
     // 学
     return !!_filestream;
+}
+
+LogEvent::LogEvent(const char* file, int32_t line, uint32_t elapse, uint32_t thread_id, uint32_t fiber_id, uint64_t time)
+    : _file { file }
+    , _line { line }
+    , _elapse { elapse }
+    , _thread_id { thread_id }
+    , _fiber_id { fiber_id }
+    , _time { time }
+{
 }
 
 FileLogAppender::FileLogAppender(const std::string& filename)
@@ -215,7 +228,7 @@ public:
     TabFormatItem(const std::string& fmt = "") { }
     void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override
     {
-        os << '\t';
+        os << "\t";
     }
 };
 
@@ -246,8 +259,10 @@ private:
 LogFormatter::LogFormatter(const std::string& pattern)
     : _pattern { pattern }
 {
+    init();
 }
 
+//%xxx %xxx{xxx} %%
 void LogFormatter::init()
 {
     // str, format, type
@@ -320,24 +335,22 @@ void LogFormatter::init()
     if (!nstr.empty()) {
         vec.push_back(std::make_tuple(nstr, "", 0));
     }
-    static std::map<std::string, std::function<FormatItem::ptr(const std::string& str)>> s_format_items
-    {
-
+    static std::map<std::string, std::function<FormatItem::ptr(const std::string& str)>> s_format_items = {
 #define XX(str, C) \
     { #str, [](const std::string& fmt) { return FormatItem::ptr(new C(fmt)); } }
 
         XX(m, MessageFormatItem), // m:消息
-            XX(p, LevelFormatItem), // p:日志级别
-            XX(r, ElapseFormatItem), // r:累计毫秒数
-            XX(c, NameFormatItem), // c:日志名称
-            XX(t, ThreadIdFormatItem), // t:线程id
-            XX(n, NewLineFormatItem), // n:换行
-            XX(d, DateTimeFormatItem), // d:时间
-            XX(f, FilenameFormatItem), // f:文件名
-            XX(l, LineFormatItem), // l:行号
-            XX(T, TabFormatItem), // T:Tab
-            XX(F, FiberIdFormatItem), // F:协程id
-        // XX(N, ThreadNameFormatItem), // N:线程名称
+        XX(p, LevelFormatItem), // p:日志级别
+        XX(r, ElapseFormatItem), // r:累计毫秒数
+        XX(c, NameFormatItem), // c:日志名称
+        XX(t, ThreadIdFormatItem), // t:线程id
+        XX(n, NewLineFormatItem), // n:换行
+        XX(d, DateTimeFormatItem), // d:时间
+        XX(f, FilenameFormatItem), // f:文件名
+        XX(l, LineFormatItem), // l:行号
+        XX(T, TabFormatItem), // T:Tab
+        XX(F, FiberIdFormatItem), // F:协程id
+    // XX(N, ThreadNameFormatItem), // N:线程名称
 #undef XX
     };
 
@@ -348,7 +361,7 @@ void LogFormatter::init()
             auto it = s_format_items.find(std::get<0>(i));
             if (it == s_format_items.end()) {
                 _items.push_back(FormatItem::ptr(new StringFormatItem("<<error_format %" + std::get<0>(i) + ">>")));
-                // m_error = true;
+                _error = true;
             } else {
                 _items.push_back(it->second(std::get<1>(i)));
             }
@@ -356,6 +369,7 @@ void LogFormatter::init()
 
         // std::cout << "(" << std::get<0>(i) << ") - (" << std::get<1>(i) << ") - (" << std::get<2>(i) << ")" << std::endl;
     }
+    // std::cout << m_items.size() << std::endl;
 }
 
 std::string LogFormatter::format(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event)
@@ -364,8 +378,11 @@ std::string LogFormatter::format(std::shared_ptr<Logger> logger, LogLevel::Level
     for (auto& iter : _items) {
         iter->format(ss, logger, level, event);
     }
+
+    std::cout << "->" << ss.str() << std::endl;
     return ss.str();
 }
+// BUG: who is the caller of format?
 
 }
 
