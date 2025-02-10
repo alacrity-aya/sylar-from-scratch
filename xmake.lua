@@ -1,8 +1,15 @@
+add_rules("plugin.compile_commands.autoupdate", { outputdir = "build" })
 add_rules("mode.debug", "mode.release")
 
-target("sylar")
-    set_kind("binary")
+target("sylar-log")
+    set_kind("shared")
     add_files("sylar/*.cc")
+
+target("log_test")
+    set_kind("binary")
+    add_files("./test/log_test.cc")
+    add_deps("sylar-log")
+    add_includedirs("./")
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io

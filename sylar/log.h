@@ -3,15 +3,16 @@
 
 #include <cstdint>
 #include <fstream>
-#include <functional>
 #include <list>
-#include <map>
 #include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <vector>
+
 namespace sylar {
+
+class Logger;
 
 class LogLevel {
 public:
@@ -78,14 +79,15 @@ class LogFormatter {
 public:
     using ptr = std::shared_ptr<LogFormatter>;
 
-    std::string format(LogLevel::Level level, LogEvent::ptr event);
+    std::string format(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event);
     LogFormatter(const std::string& pattern);
 
     class FormatItem {
     public:
         using ptr = std::shared_ptr<FormatItem>;
-        virtual ~FormatItem();
-        virtual void format(std::ostream& os, LogLevel::Level level, LogEvent::ptr event) = 0;
+        // explicit FormatItem(const std::string& fmt = "") {};
+        virtual ~FormatItem() = default;
+        virtual void format(std::ostream& os, std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) = 0;
     };
 
 private:
@@ -101,7 +103,7 @@ public:
     using ptr = std::shared_ptr<LogAppender>;
     virtual ~LogAppender() = default;
 
-    virtual void log(LogLevel::Level level, LogEvent::ptr event) = 0;
+    virtual void log(std::shared_ptr<Logger>, LogLevel::Level level, LogEvent::ptr event) = 0;
     void set_formatter(LogFormatter::ptr val) { _formatter = val; }
     [[nodiscard]] LogFormatter::ptr get_fotmatter() const { return _formatter; }
 
@@ -111,7 +113,7 @@ protected:
 };
 
 // log output device
-class Logger {
+class Logger : public std::enable_shared_from_this<Logger> {
 public:
     using ptr = std::shared_ptr<Logger>;
 
@@ -128,19 +130,21 @@ public:
     void add_appender(LogAppender::ptr appender);
     void del_appender(LogAppender::ptr appender);
     [[nodiscard]] LogLevel::Level get_level() const { return _level; }
+    [[nodiscard]] const std::string& get_name() const { return _name; }
     void set_level(LogLevel::Level level) { _level = level; }
 
 private:
     std::string _name; // name of log
     LogLevel::Level _level; // log if level fit the _level here
     std::list<LogAppender::ptr> _appenders; // the lists of appenders
+    LogFormatter::ptr _formatter;
 };
 
 // output to command line
 class StdoutAppender : public LogAppender {
 public:
     using ptr = std::shared_ptr<StdoutAppender>;
-    void log(LogLevel::Level level, LogEvent::ptr event) override;
+    void log(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override;
 
 private:
 };
@@ -150,7 +154,7 @@ class FileLogAppender : public LogAppender {
 
 public:
     using ptr = std::shared_ptr<FileLogAppender>;
-    void log(LogLevel::Level level, LogEvent::ptr event) override;
+    void log(std::shared_ptr<Logger> logger, LogLevel::Level level, LogEvent::ptr event) override;
     explicit FileLogAppender(const std::string& filename);
 
     // if open successfully, return true
